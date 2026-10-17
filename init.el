@@ -309,8 +309,13 @@ If the new path's directories does not exist, create them."
 (use-package treemacs-evil              ; treemacs keys under evil
   :after (treemacs evil))
 
-(use-package nerd-icons                 ; fonts: M-x nerd-icons-install-fonts
-  :defer t)
+(use-package nerd-icons
+  :defer t
+  :config
+  ;; Icons are drawn with this font; download it once if Emacs can't find it
+  (when (and (display-graphic-p)
+             (not (find-font (font-spec :name nerd-icons-font-family))))
+    (nerd-icons-install-fonts t)))
 
 ;; Terminal in a bottom panel, toggled with C-` like VS Code
 (defun my/eat-toggle ()
@@ -351,6 +356,9 @@ If the new path's directories does not exist, create them."
 (setopt display-time-format "%a %F %T")
 (setopt display-time-interval 1)
 (display-time-mode)
+;; ...but keep the clock out of the mode line
+(setf (alist-get 'global-mode-string mode-line-misc-info)
+      '(("" (:eval (remq 'display-time-string (ensure-list global-mode-string))))))
 
 ;; A transient menu to make working with the tab-bar easier
 ;; The `transient' library is built-in and makes defining little menus
@@ -388,6 +396,15 @@ If the new path's directories does not exist, create them."
   (doom-themes-org-config)              ; richer org-mode fontification
   (doom-themes-treemacs-config))        ; doom's icon theme for treemacs
 
+;; Mode line with nerd-icons
+(use-package doom-modeline
+  :custom
+  (doom-modeline-buffer-encoding 'nondefault) ; only when not UTF-8/LF
+  (doom-modeline-env-version nil)             ; no interpreter version
+  (doom-modeline-time nil)                    ; no clock in the mode line
+  :config
+  (doom-modeline-mode))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;;   Optional extras
@@ -399,10 +416,10 @@ If the new path's directories does not exist, create them."
 
 ;; UI/UX enhancements mostly focused on minibuffer and autocompletion interfaces
 ;; These ones are *strongly* recommended!
-;(load-file (expand-file-name "extras/base.el" user-emacs-directory))
+(load-file (expand-file-name "extras/base.el" user-emacs-directory))
 
 ;; Packages for software development
-;(load-file (expand-file-name "extras/dev.el" user-emacs-directory))
+(load-file (expand-file-name "extras/dev.el" user-emacs-directory))
 
 ;; Vim-bindings in Emacs (evil-mode configuration)
 (load-file (expand-file-name "extras/vim-like.el" user-emacs-directory))
@@ -410,7 +427,7 @@ If the new path's directories does not exist, create them."
 ;; Org-mode configuration
 ;; WARNING: need to customize things inside the elisp file before use! See
 ;; the file extras/org-intro.txt for help.
-;(load-file (expand-file-name "extras/org.el" user-emacs-directory))
+(load-file (expand-file-name "extras/org.el" user-emacs-directory))
 
 ;; Email configuration in Emacs
 ;; WARNING: needs the `mu' program installed; see the elisp file for more
@@ -431,7 +448,11 @@ If the new path's directories does not exist, create them."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages '(citar-typst which-key)))
+ '(org-agenda-files nil)
+ '(package-selected-packages
+   '(cape citar-typst consult corfu embark-consult json-mode kind-icon
+	  magit marginalia markdown-mode orderless tempel vertico
+	  which-key yaml-mode)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

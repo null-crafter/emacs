@@ -175,3 +175,31 @@
 (use-package orderless
   :config
   (setq completion-styles '(orderless basic)))
+
+;; Project search: C-c s greps, C-c f finds files; C-u limits either to
+;; the buffer's directory
+(orderless-define-completion-style my/orderless-fuzzy
+  (orderless-matching-styles '(orderless-flex)) ; fzf-style: btnts -> Button.tsx
+  (orderless-smart-case nil)
+  (completion-ignore-case t))
+(add-to-list 'completion-category-overrides '(project-file (styles my/orderless-fuzzy)))
+
+(defun my/grep (&optional here)
+  "Case-insensitive ripgrep in the project, or with C-u in this directory."
+  (interactive "P")
+  (require 'consult)
+  (let ((consult-ripgrep-args
+         (string-replace "--smart-case" "--ignore-case" consult-ripgrep-args))
+        (orderless-smart-case nil)      ; for the #filter part too
+        (completion-ignore-case t))
+    (consult-ripgrep (and here default-directory))))
+
+(defun my/find-file (&optional here)
+  "Fuzzy-find a file in the project, or with C-u under this directory."
+  (interactive "P")
+  (let ((project (or (project-current) (cons 'transient default-directory))))
+    (project-find-file-in nil (list (if here default-directory (project-root project)))
+                          project)))
+
+(keymap-global-set "C-c s" #'my/grep)
+(keymap-global-set "C-c f" #'my/find-file)

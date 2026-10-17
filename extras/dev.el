@@ -22,6 +22,7 @@
 ;;;  - Version Control
 ;;;  - Common file types
 ;;;  - Eglot, the built-in LSP client for Emacs
+;;;  - Python virtualenvs
 ;;;  - Templating
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,8 +56,7 @@
 
 (use-package project
   :custom
-  (when (>= emacs-major-version 30)
-    (project-mode-line t)))         ; show project name in modeline
+  (project-mode-line t))                ; show project name in modeline
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -81,6 +81,10 @@
 
 (use-package json-mode)
 
+;; .mjs/.cjs open like .js, .mts/.cts like .ts
+(add-to-list 'auto-mode-alist '("\\.[cm]js\\'" . javascript-mode))
+(add-to-list 'auto-mode-alist '("\\.[cm]ts\\'" . typescript-ts-mode-maybe))
+
 ;; Emacs ships with a lot of popular programming language modes. If it's not
 ;; built in, you're almost certain to find a mode for the language you're
 ;; looking for with a quick Internet search.
@@ -98,9 +102,13 @@
 (use-package eglot
   ;; no :ensure t here because it's built-in
 
-  ;; Configure hooks to automatically turn-on eglot for selected modes
-  ; :hook
-  ; (((python-mode ruby-mode elixir-mode) . eglot-ensure))
+  ;; Configure hooks to automatically turn-on eglot for selected modes.
+  ;; python-base-mode also covers python-ts-mode, which .py files open in.
+  :hook
+  ((python-base-mode . eglot-ensure)
+   ;; not js-base-mode: MELPA's json-mode (.json) derives from it
+   ((js-ts-mode typescript-ts-base-mode) . eglot-ensure)
+   (rust-ts-mode . eglot-ensure))       ; eglot ships the rust-analyzer entry
 
   :custom
   (eglot-send-changes-idle-time 0.1)
@@ -116,6 +124,22 @@
   ; (add-to-list 'eglot-server-programs
   ;              '(haskell-mode . ("haskell-language-server-wrapper" "--lsp")))
 
+
+  ;; ty and jedi in one buffer through the rass multiplexer. Log level `info'
+  ;; keeps server errors but drops rass's copy of every LSP message.
+  (add-to-list 'eglot-server-programs
+               '((python-base-mode :language-id "python")
+                 . ("rass" "--log-level" "info"
+                    "--" "ty" "server"))
+	       )
+
+  ;; JS/TS: TypeScript 7's built-in language server
+  (add-to-list 'eglot-server-programs
+               '(((js-ts-mode :language-id "javascript")
+                  (tsx-ts-mode :language-id "typescriptreact")
+                  (typescript-ts-mode :language-id "typescript"))
+                 . ("tsc" "--lsp" "--stdio")))
+
   ;; You can set various options for each language server. For
   ;; example, you can raise the number of completions surfaced by a
   ;; given langauge server to Emacs:
@@ -123,6 +147,38 @@
 	  '((haskell (maxCompletions . 100))
 	    (elixir  (maxCompletions . 100))))
   )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;;   Python virtualenvs
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; pet finds each project's virtualenv (VIRTUAL_ENV, .venv, poetry, pipenv,
+;; conda, pyenv...); M-x pet-verify-setup shows what it picked. Reading
+;; pyproject.toml, Pipfile and environment.yml needs the `dasel' program.
+(defun my/pet-export-venv ()
+  "Hand pet's virtualenv to this buffer's subprocesses, like bin/activate."
+  (pet-eglot-teardown)            ; pet tunes eglot by server name; misfires behind rass
+  (kill-local-variable 'exec-path)
+  (kill-local-variable 'process-environment)
+  (when-let* ((venv (and pet-mode python-shell-virtualenv-root))
+              (bin (expand-file-name "bin" venv)))
+    (setq-local exec-path (cons bin exec-path))
+    (setq-local process-environment
+                (append (list (concat "VIRTUAL_ENV=" (directory-file-name venv))
+                              (concat "PATH=" bin path-separator (getenv "PATH")))
+                        process-environment))))
+
+(use-package pet
+  :defer t
+  :custom
+  (pet-debug t)                         ; report detection errors, don't swallow them
+  :init
+  (add-hook 'python-base-mode-hook #'pet-mode -10)
+  :config
+  (add-hook 'pet-after-buffer-local-vars-setup #'my/pet-export-venv)
+  (add-hook 'pet-before-buffer-local-vars-teardown #'my/pet-export-venv))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
