@@ -1,0 +1,12 @@
+#!/bin/sh
+
+case "$(uname -s)" in
+  Darwin) ;;
+  Linux) ;;
+  *)      echo "unknown OS: $(uname -s)" >&2; exit 1 ;;
+esac
+
+[ `uname -s` = "Linux" ] && exec emacs "$@" &>/dev/null & disown
+
+
+[ `uname -s` = "Darwin" ] && open -a Emacs .

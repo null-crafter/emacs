@@ -1,0 +1,28 @@
+# Packages: use-package reinstalls them on each machine
+/elpa/
+# Native-compiled code, specific to each Emacs build
+/eln-cache/
+# Backups of every file you save (Bedrock) and auto-save session lists
+/emacs-backup/
+/auto-save-list/
+# History, caches and per-machine state
+/history
+/.cache/
+/transient/
+/projects
+/bookmarks
+/recentf
+/places
+/tramp
+/url/
+/network-security.data
+/eshell/
+/multisession/
+/server/
+/tree-sitter/
+# Stray backup, auto-save, lock and compiled files
+*~
+\#*\#
+.#*
+*.elc
+.DS_Store
