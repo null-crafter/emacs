@@ -9,4 +9,4 @@ esac
 [ `uname -s` = "Linux" ] && exec emacs "$@" &>/dev/null & disown
 
 
-[ `uname -s` = "Darwin" ] && open -a Emacs "$@"
+[ `uname -s` = "Darwin" ] && open -a Emacs .

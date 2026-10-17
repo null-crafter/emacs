@@ -109,6 +109,60 @@
   (setq org-export-with-smart-quotes t)
   )
 
+;; Live PDF preview: C-c v renders the file with pandoc + Typst into a side
+;; window and again on every save; C-c v again stops
+(defvar-local my/org-preview--process nil)
+
+(defun my/org-preview--pdf ()
+  "Preview PDF for this buffer's file, kept out of the project."
+  (let ((file (buffer-file-name)))
+    (expand-file-name (format "org-preview/%s-%s.pdf" (file-name-base file)
+                              (substring (sha1 file) 0 8))
+                      temporary-file-directory)))
+
+(defun my/org-preview--export ()
+  "Render this file's preview PDF in the background, then show it."
+  (let ((pdf (my/org-preview--pdf))
+        (log (get-buffer-create "*Org preview*")))
+    (make-directory (file-name-directory pdf) t)
+    (when (process-live-p my/org-preview--process)
+      (delete-process my/org-preview--process))
+    (with-current-buffer log (erase-buffer))
+    (setq my/org-preview--process
+          (make-process
+           :name "org-preview" :buffer log :noquery t
+           :command (list "pandoc" (buffer-file-name) "-o" pdf "--pdf-engine=typst")
+           :sentinel
+           (lambda (proc _event)
+             (unless (process-live-p proc)
+               (if (/= 0 (process-exit-status proc))
+                   (progn (display-buffer log)
+                          (message "Org preview failed, see *Org preview*"))
+                 (let ((buf (get-file-buffer pdf)))
+                   (if buf
+                       (with-current-buffer buf (revert-buffer t t))
+                     (setq buf (find-file-noselect pdf)))
+                   (display-buffer buf '(display-buffer-in-side-window
+                                         (side . right) (window-width . 0.5)))))))))))
+
+(defun my/org-preview ()
+  "Toggle a live PDF preview of this Org file."
+  (interactive)
+  (unless (buffer-file-name)
+    (user-error "Save this buffer to a file first"))
+  (if (memq #'my/org-preview--export after-save-hook)
+      (progn
+        (remove-hook 'after-save-hook #'my/org-preview--export t)
+        (when-let* ((buf (get-file-buffer (my/org-preview--pdf)))
+                    (win (get-buffer-window buf)))
+          (delete-window win))
+        (message "Org preview off"))
+    (add-hook 'after-save-hook #'my/org-preview--export nil t)
+    (if (buffer-modified-p) (save-buffer) (my/org-preview--export))))
+
+(with-eval-after-load 'org
+  (keymap-set org-mode-map "C-c v" #'my/org-preview))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;;   Phase 2: todos, agenda generation, and task tracking
