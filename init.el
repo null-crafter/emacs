@@ -312,6 +312,30 @@ If the new path's directories does not exist, create them."
 (use-package nerd-icons                 ; fonts: M-x nerd-icons-install-fonts
   :defer t)
 
+;; Terminal in a bottom panel, toggled with C-` like VS Code
+(defun my/eat-toggle ()
+  "Hide the terminal panel, or show the current project's terminal in it."
+  (interactive)
+  (if-let* ((win (seq-find (lambda (w) (with-current-buffer (window-buffer w)
+                                         (derived-mode-p 'eat-mode)))
+                           (window-list))))
+      (delete-window win)
+    (if (project-current) (eat-project) (eat))))
+
+(use-package eat
+  :bind ("C-`" . my/eat-toggle)
+  :custom
+  (eat-kill-buffer-on-exit t)           ; `exit' closes the panel
+  :config
+  ;; Keep C-` from going to the shell so it hides the panel from inside too
+  (add-to-list 'eat-semi-char-non-bound-keys (kbd "C-`"))
+  (eat-update-semi-char-mode-map))
+
+(add-to-list 'display-buffer-alist
+             '("\\`\\*\\(?:.*-\\)?eat\\*"  ; *eat*, *project-eat*
+               (display-buffer-in-side-window)
+               (side . bottom) (window-height . 0.3)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;;   Tab-bar configuration
